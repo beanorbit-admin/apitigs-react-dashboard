@@ -69,7 +69,7 @@ export default function TeacherDetail() {
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-900">{teacher.name}</h2>
           <p className="text-sm text-gray-500">{teacher.email}</p>
-          <p className="text-sm text-gray-500">{teacher.phone}</p>
+          <p className="text-sm text-gray-500">{teacher.countryCode || '+91'} {teacher.phone}</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant={teacher.status === 'Active' ? 'success' : 'default'}>{teacher.status}</Badge>
