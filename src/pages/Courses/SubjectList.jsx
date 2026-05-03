@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ChevronRight, Pencil, Trash2, Plus, FileText } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Pencil, Trash2, Plus, FileText, Search } from 'lucide-react'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
@@ -21,9 +21,16 @@ export default function SubjectList() {
   const courses = useAppSelector(s => s.courses.list)
   const { semesters, subjects, chapters } = useAppSelector(s => s.courseContent)
 
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
@@ -39,6 +46,13 @@ export default function SubjectList() {
   const semSubjects = subjects
     .filter(s => s.semesterId === Number(semesterId))
     .sort((a, b) => a.order - b.order)
+
+  const visibleSubjects = useMemo(() => {
+    const s = search.toLowerCase()
+    return semSubjects.filter(sub =>
+      !s || sub.name.toLowerCase().includes(s) || (sub.description || '').toLowerCase().includes(s)
+    )
+  }, [semSubjects, search])
 
   const chapterCount = (subId) => chapters.filter(c => c.subjectId === subId).length
 
@@ -108,15 +122,30 @@ export default function SubjectList() {
         </Button>
       </div>
 
+      {/* Search bar */}
+      <div className="relative mb-5">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <input
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          placeholder="Search subjects..."
+          className="w-full sm:w-72 pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+
       {/* Subjects grid */}
       {semSubjects.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-16 text-center">
           <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-400">No subjects yet. Add the first one.</p>
         </div>
+      ) : visibleSubjects.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+          <p className="text-sm text-gray-400">No subjects match your search.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {semSubjects.map(sub => (
+          {visibleSubjects.map(sub => (
             <div
               key={sub.id}
               className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-100 transition-all group"

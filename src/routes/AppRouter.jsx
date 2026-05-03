@@ -13,6 +13,7 @@ import CourseDetail from '../pages/Courses/CourseDetail'
 import SemesterList from '../pages/Courses/SemesterList'
 import SubjectList from '../pages/Courses/SubjectList'
 import ChapterSubjectView from '../pages/Courses/ChapterSubjectView'
+import ChapterView from '../pages/Courses/ChapterView'
 import TeacherList from '../pages/Teachers/TeacherList'
 import TeacherDetail from '../pages/Teachers/TeacherDetail'
 import QuizList from '../pages/Quizzes/QuizList'
@@ -40,6 +41,7 @@ export default function AppRouter() {
         <Route path="/courses/:courseId/content" element={<ProtectedRoute><SemesterList /></ProtectedRoute>} />
         <Route path="/courses/:courseId/content/:semesterId" element={<ProtectedRoute><SubjectList /></ProtectedRoute>} />
         <Route path="/courses/:courseId/content/:semesterId/:subjectId" element={<ProtectedRoute><ChapterSubjectView /></ProtectedRoute>} />
+        <Route path="/courses/:courseId/content/:semesterId/:subjectId/:chapterId" element={<ProtectedRoute><ChapterView /></ProtectedRoute>} />
         <Route path="/teachers" element={<ProtectedRoute adminOnly><TeacherList /></ProtectedRoute>} />
         <Route path="/teachers/:id" element={<ProtectedRoute adminOnly><TeacherDetail /></ProtectedRoute>} />
         <Route path="/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />

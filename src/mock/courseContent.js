@@ -27,12 +27,12 @@ export const chapters = [
 ]
 
 export const lessons = [
-  { id: 1,  chapterId: 1, subjectId: 1, semesterId: 1, courseId: 1, name: 'What is Programming?', type: 'video', videoType: 'youtube', videoUrl: 'https://www.youtube.com/watch?v=zOjov-2OZ0E', order: 1 },
-  { id: 2,  chapterId: 1, subjectId: 1, semesterId: 1, courseId: 1, name: 'Variables and Data Types', type: 'video', videoType: 'youtube', videoUrl: 'https://www.youtube.com/watch?v=87SH2Cn0s9A', order: 2 },
+  { id: 1,  chapterId: 1, subjectId: 1, semesterId: 1, courseId: 1, name: 'What is Programming?', type: 'video', videoType: 'youtube', videoKey: 'zOjov-2OZ0E', order: 1 },
+  { id: 2,  chapterId: 1, subjectId: 1, semesterId: 1, courseId: 1, name: 'Variables and Data Types', type: 'video', videoType: 'youtube', videoKey: '87SH2Cn0s9A', order: 2 },
   { id: 3,  chapterId: 1, subjectId: 1, semesterId: 1, courseId: 1, name: 'Chapter 1 – Study Notes', type: 'pdf', pdfUrl: 'https://example.com/notes/intro-c-ch1.pdf', isDownloadable: true, order: 3 },
   { id: 4,  chapterId: 2, subjectId: 1, semesterId: 1, courseId: 1, name: 'Understanding Functions', type: 'video', videoType: 'm3u8', videoUrl: 'https://stream.example.com/functions.m3u8', order: 1 },
   { id: 5,  chapterId: 2, subjectId: 1, semesterId: 1, courseId: 1, name: 'Functions – Practice Sheet', type: 'pdf', pdfUrl: 'https://example.com/notes/functions.pdf', isDownloadable: true, order: 2 },
   { id: 6,  chapterId: 5, subjectId: 4, semesterId: 2, courseId: 1, name: 'Array Operations', type: 'video', videoType: 'streaming', streamingPlatform: 'Vimeo', streamingKey: 'vimeo_123456', order: 1 },
   { id: 7,  chapterId: 5, subjectId: 4, semesterId: 2, courseId: 1, name: 'Linked List – Notes', type: 'pdf', pdfUrl: 'https://example.com/notes/linked-list.pdf', isDownloadable: false, order: 2 },
-  { id: 8,  chapterId: 7, subjectId: 6, semesterId: 4, courseId: 2, name: 'QuickSort Explained', type: 'video', videoType: 'youtube', videoUrl: 'https://www.youtube.com/watch?v=Hoixgm4-P4M', order: 1 },
+  { id: 8,  chapterId: 7, subjectId: 6, semesterId: 4, courseId: 2, name: 'QuickSort Explained', type: 'video', videoType: 'youtube', videoKey: 'Hoixgm4-P4M', order: 1 },
 ]
