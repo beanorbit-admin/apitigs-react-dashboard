@@ -19,7 +19,7 @@ import TeacherDetail from '../pages/Teachers/TeacherDetail'
 import QuizList from '../pages/Quizzes/QuizList'
 import QuizForm from '../pages/Quizzes/QuizForm'
 import QuizQuestions from '../pages/Quizzes/QuizQuestions'
-import SchedulePage from '../pages/Schedule/SchedulePage'
+import SchedulePage from '../pages/Schedule'
 import PaymentsPage from '../pages/Payments/PaymentsPage'
 import NotificationsPage from '../pages/Notifications/NotificationsPage'
 
