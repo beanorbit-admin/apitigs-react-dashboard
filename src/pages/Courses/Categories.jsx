@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -6,7 +6,7 @@ import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addCategory, updateCategory, deleteCategory } from '../../store/slices/courseSlice'
+import { fetchCategoriesThunk, fetchCoursesThunk, createCategoryThunk, updateCategoryThunk, deleteCategoryThunk } from '../../store/slices/courseSlice'
 
 export default function Categories() {
   const dispatch = useAppDispatch()
@@ -18,24 +18,31 @@ export default function Categories() {
   const [name, setName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
 
+  useEffect(() => {
+    dispatch(fetchCategoriesThunk())
+    dispatch(fetchCoursesThunk())
+  }, [dispatch])
+
   const openAdd = () => { setEditTarget(null); setName(''); setModalOpen(true) }
   const openEdit = (cat) => { setEditTarget(cat); setName(cat.name); setModalOpen(true) }
 
-  const onSave = () => {
+  const onSave = async () => {
     if (!name.trim()) return
-    if (editTarget) {
-      dispatch(updateCategory({ ...editTarget, name: name.trim() }))
-      toast.success('Category updated')
+    const result = editTarget
+      ? await dispatch(updateCategoryThunk({ id: editTarget.id, data: { name: name.trim() } }))
+      : await dispatch(createCategoryThunk({ name: name.trim() }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editTarget ? 'Category updated' : 'Category added')
+      setModalOpen(false)
     } else {
-      dispatch(addCategory({ id: Date.now(), name: name.trim() }))
-      toast.success('Category added')
+      toast.error('Save failed')
     }
-    setModalOpen(false)
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteCategory(deleteTarget.id))
-    toast.success('Category deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteCategoryThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Category deleted')
+    else toast.error('Delete failed')
     setDeleteTarget(null)
   }
 
@@ -45,7 +52,7 @@ export default function Categories() {
     {
       header: 'Course Count',
       cell: r => {
-        const count = courses.filter(c => c.categoryId === r.id).length
+        const count = courses.filter(c => c.category === r.id).length
         return <span className="text-gray-600">{count} course{count !== 1 ? 's' : ''}</span>
       }
     },

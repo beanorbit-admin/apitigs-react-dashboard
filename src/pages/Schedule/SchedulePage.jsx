@@ -9,8 +9,7 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import Table from '../../components/common/Table'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { setEvents, addEvent, updateEvent, deleteEvent } from '../../store/slices/scheduleSlice'
-import { events as mockEvents } from '../../mock/schedule'
+import { fetchEventsThunk, createEventThunk, updateEventThunk, deleteEventThunk } from '../../store/slices/scheduleSlice'
 
 const typeColor = { Class: '#4F46E5', Exam: '#DC2626', Activity: '#059669' }
 const typeBadge = { Class: 'info', Exam: 'danger', Activity: 'success' }
@@ -19,7 +18,7 @@ const emptyForm = { title: '', type: 'Class', courseId: '', teacherId: '', date:
 
 export default function SchedulePage() {
   const dispatch = useAppDispatch()
-  const events = useAppSelector(state => state.schedule.list)
+  const events = useAppSelector(state => state.schedule.events)
   const courses = useAppSelector(state => state.courses.list)
   const teachers = useAppSelector(state => state.teachers.list)
 
@@ -32,8 +31,8 @@ export default function SchedulePage() {
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
-    if (events.length === 0) dispatch(setEvents(mockEvents))
-  }, [dispatch, events.length])
+    dispatch(fetchEventsThunk())
+  }, [dispatch])
 
   const calEvents = events.map(e => ({
     id: String(e.id),
@@ -54,24 +53,39 @@ export default function SchedulePage() {
     setModalOpen(true)
   }
 
-  const onSave = () => {
+  const onSave = async () => {
     if (!form.title || !form.date) { toast.error('Title and date are required'); return }
-    const course = courses.find(c => c.id === Number(form.courseId))
-    const teacher = teachers.find(t => t.id === Number(form.teacherId))
-    const payload = { ...form, courseId: Number(form.courseId), teacherId: Number(form.teacherId), courseName: course?.title || '', teacherName: teacher?.name || '' }
-    if (editTarget) {
-      dispatch(updateEvent({ ...editTarget, ...payload }))
-      toast.success('Event updated')
-    } else {
-      dispatch(addEvent({ ...payload, id: Date.now() }))
-      toast.success('Event added')
+    const payload = {
+      title: form.title,
+      type: form.type,
+      date: form.date,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      notes: form.notes,
+      ...(form.courseId ? { course: Number(form.courseId) } : {}),
+      ...(form.teacherId ? { teacher: Number(form.teacherId) } : {}),
     }
-    setModalOpen(false)
+    let result
+    if (editTarget) {
+      result = await dispatch(updateEventThunk({ id: editTarget.id, data: payload }))
+    } else {
+      result = await dispatch(createEventThunk(payload))
+    }
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editTarget ? 'Event updated' : 'Event added')
+      setModalOpen(false)
+    } else {
+      toast.error('Save failed')
+    }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteEvent(deleteTarget.id))
-    toast.success('Event deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteEventThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Event deleted')
+    } else {
+      toast.error('Delete failed')
+    }
     setDeleteTarget(null)
   }
 

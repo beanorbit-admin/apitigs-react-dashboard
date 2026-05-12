@@ -9,15 +9,11 @@ import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
-  setCourseContent,
-  addChapter, updateChapter, deleteChapter,
+  fetchSemestersThunk, fetchSubjectsThunk,
+  fetchChaptersThunk, fetchLessonsThunk,
+  createChapterThunk, updateChapterThunk, deleteChapterThunk,
 } from '../../store/slices/courseContentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import {
-  semesters as mockSemesters, subjects as mockSubjects,
-  chapters as mockChapters, lessons as mockLessons,
-} from '../../mock/courseContent'
-import { courses as mockCourses } from '../../mock/courses'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 export default function ChapterSubjectView() {
   const { courseId, semesterId, subjectId } = useParams()
@@ -41,11 +37,12 @@ export default function ChapterSubjectView() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   useEffect(() => {
-    if (courses.length === 0) dispatch(setCourses(mockCourses))
-    if (semesters.length === 0) {
-      dispatch(setCourseContent({ semesters: mockSemesters, subjects: mockSubjects, chapters: mockChapters, lessons: mockLessons }))
-    }
-  }, [courses.length, semesters.length, dispatch])
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchSemestersThunk({ course: courseId }))
+    dispatch(fetchSubjectsThunk({ semester: semesterId }))
+    dispatch(fetchChaptersThunk({ subject: subjectId }))
+    dispatch(fetchLessonsThunk({ chapter__subject: subjectId }))
+  }, [dispatch, courseId, semesterId, subjectId])
 
   const course   = courses.find(c => c.id === Number(courseId))
   const semester = semesters.find(s => s.id === Number(semesterId))
@@ -67,28 +64,33 @@ export default function ChapterSubjectView() {
   const openAdd  = () => { setEditTarget(null); reset({ name: '', description: '' }); setModalOpen(true) }
   const openEdit = (ch) => { setEditTarget(ch); reset({ name: ch.name, description: ch.description }); setModalOpen(true) }
 
-  const onSave = (data) => {
+  const onSave = async (data) => {
+    let result
     if (editTarget) {
-      dispatch(updateChapter({ ...editTarget, ...data }))
-      toast.success('Chapter updated')
+      result = await dispatch(updateChapterThunk({ id: editTarget.id, data: { name: data.name, description: data.description } }))
     } else {
-      dispatch(addChapter({
-        id: Date.now(),
-        subjectId: Number(subjectId),
-        semesterId: Number(semesterId),
-        courseId: Number(courseId),
+      result = await dispatch(createChapterThunk({
+        subject: Number(subjectId),
         name: data.name,
         description: data.description,
         order: subjectChapters.length + 1,
       }))
-      toast.success('Chapter added')
     }
-    setModalOpen(false)
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editTarget ? 'Chapter updated' : 'Chapter added')
+      setModalOpen(false)
+    } else {
+      toast.error('Save failed')
+    }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteChapter(deleteTarget.id))
-    toast.success('Chapter deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteChapterThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Chapter deleted')
+    } else {
+      toast.error('Delete failed')
+    }
     setDeleteTarget(null)
   }
 

@@ -8,10 +8,11 @@ import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { setCourseContent, addSemester, updateSemester, deleteSemester } from '../../store/slices/courseContentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import { semesters as mockSemesters, subjects as mockSubjects, chapters as mockChapters, lessons as mockLessons } from '../../mock/courseContent'
-import { courses as mockCourses } from '../../mock/courses'
+import {
+  fetchSemestersThunk, createSemesterThunk, updateSemesterThunk, deleteSemesterThunk,
+  fetchSubjectsThunk,
+} from '../../store/slices/courseContentSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 export default function SemesterList() {
   const { courseId } = useParams()
@@ -35,11 +36,10 @@ export default function SemesterList() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   useEffect(() => {
-    if (courses.length === 0) dispatch(setCourses(mockCourses))
-    if (semesters.length === 0) {
-      dispatch(setCourseContent({ semesters: mockSemesters, subjects: mockSubjects, chapters: mockChapters, lessons: mockLessons }))
-    }
-  }, [courses.length, semesters.length, dispatch])
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchSemestersThunk({ course: courseId }))
+    dispatch(fetchSubjectsThunk({ semester__course: courseId }))
+  }, [dispatch, courseId])
 
   const course = courses.find(c => c.id === Number(courseId))
   const courseSemesters = semesters
@@ -58,26 +58,29 @@ export default function SemesterList() {
   const openAdd = () => { setEditTarget(null); reset({ name: '', description: '' }); setModalOpen(true) }
   const openEdit = (sem) => { setEditTarget(sem); reset({ name: sem.name, description: sem.description }); setModalOpen(true) }
 
-  const onSave = (data) => {
+  const onSave = async (data) => {
+    const payload = { course: Number(courseId), name: data.name, description: data.description, order: courseSemesters.length + 1 }
+    let result
     if (editTarget) {
-      dispatch(updateSemester({ ...editTarget, ...data }))
-      toast.success('Semester updated')
+      result = await dispatch(updateSemesterThunk({ id: editTarget.id, data: { name: data.name, description: data.description } }))
     } else {
-      dispatch(addSemester({
-        id: Date.now(),
-        courseId: Number(courseId),
-        name: data.name,
-        description: data.description,
-        order: courseSemesters.length + 1,
-      }))
-      toast.success('Semester added')
+      result = await dispatch(createSemesterThunk(payload))
     }
-    setModalOpen(false)
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editTarget ? 'Semester updated' : 'Semester added')
+      setModalOpen(false)
+    } else {
+      toast.error('Save failed')
+    }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteSemester(deleteTarget.id))
-    toast.success('Semester deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteSemesterThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Semester deleted')
+    } else {
+      toast.error('Delete failed')
+    }
     setDeleteTarget(null)
   }
 

@@ -8,10 +8,9 @@ import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
 import Badge from '../../components/common/Badge'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addStudent } from '../../store/slices/studentSlice'
-import { addEnrollment } from '../../store/slices/enrollmentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import { courses as mockCourses } from '../../mock/courses'
+import { createStudentThunk } from '../../store/slices/studentSlice'
+import { createEnrollmentThunk } from '../../store/slices/enrollmentSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 const COUNTRY_CODES = ['+91', '+1', '+44', '+971', '+61', '+65', '+60']
 
@@ -44,46 +43,42 @@ export default function AddStudentPage() {
   const selectedCourseId = watch('courseId')
 
   useEffect(() => {
-    if (courses.length === 0) dispatch(setCourses(mockCourses))
+    if (courses.length === 0) dispatch(fetchCoursesThunk())
   }, [courses.length, dispatch])
 
   const activeCourses = courses.filter(c => c.status === 'Active')
   const selectedCourse = courses.find(c => c.id === Number(selectedCourseId))
 
-  const onSubmit = (data) => {
-    const student = {
-      id: Date.now(),
+  const onSubmit = async (data) => {
+    const result = await dispatch(createStudentThunk({
       firstName: data.firstName,
       lastName: data.lastName,
-      name: `${data.firstName} ${data.lastName}`,
       email: data.email,
       countryCode: data.countryCode,
       phone: data.phone,
       place: data.place,
-      enrolledCourses: [],
+    }))
+    if (result.meta.requestStatus !== 'fulfilled') {
+      toast.error('Failed to add student')
+      return
     }
-    dispatch(addStudent(student))
+    const student = result.payload
 
     if (data.enroll && data.courseId && selectedCourse) {
-      const enrollment = {
-        id: Date.now() + 1,
-        studentId: student.id,
-        studentName: student.name,
-        courseId: selectedCourse.id,
-        courseName: selectedCourse.title,
+      const enrollResult = await dispatch(createEnrollmentThunk({
+        student: student.id,
+        course: selectedCourse.id,
         courseFee: selectedCourse.fee,
         collectedAmount: 0,
-        paymentDate: null,
-        status: 'Pending',
         accessStatus: data.accessType,
         enrollmentType: data.accessType === 'granted' ? 'direct' : 'request',
+      }))
+      const name = `${data.firstName} ${data.lastName}`
+      if (enrollResult.meta.requestStatus === 'fulfilled') {
+        toast.success(data.accessType === 'granted' ? `${name} added and access granted` : `${name} added — enrollment pending approval`)
+      } else {
+        toast.success('Student added, but enrollment failed')
       }
-      dispatch(addEnrollment(enrollment))
-      toast.success(
-        data.accessType === 'granted'
-          ? `${student.name} added and access granted`
-          : `${student.name} added — enrollment pending approval`
-      )
     } else {
       toast.success('Student added successfully')
     }

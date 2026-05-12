@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, Upload, ChevronRight, FileText, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -9,8 +9,8 @@ import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import RichTextEditor from '../../components/common/RichTextEditor'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addQuestion, updateQuestion, deleteQuestion } from '../../store/slices/questionSlice'
-import { updateQuiz } from '../../store/slices/quizSlice'
+import { fetchQuestionsThunk, createQuestionThunk, updateQuestionThunk, deleteQuestionThunk } from '../../store/slices/questionSlice'
+import { fetchQuizzesThunk, addQuestionsThunk, removeQuestionThunk } from '../../store/slices/quizSlice'
 
 const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }
 const PAGE_SIZE = 10
@@ -136,6 +136,11 @@ export default function QuizQuestions() {
   const [questionForm, setQuestionForm] = useState(EMPTY_FORM)
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
 
+  useEffect(() => {
+    dispatch(fetchQuizzesThunk())
+    dispatch(fetchQuestionsThunk())
+  }, [dispatch])
+
   const quizQuestions = useMemo(() => {
     if (!quiz) return []
     return allQuestions.filter(q => quiz.questionIds.includes(q.id))
@@ -178,31 +183,28 @@ export default function QuizQuestions() {
 
   const closeQuestionModal = () => setQuestionModal(null)
 
-  const handleSaveQuestion = (payload) => {
+  const handleSaveQuestion = async (payload) => {
     if (questionModal === 'add') {
-      const newId = Date.now()
-      dispatch(addQuestion({ ...payload, id: newId }))
-      dispatch(updateQuiz({
-        ...quiz,
-        questionIds: [...quiz.questionIds, newId],
-        totalQuestions: quiz.questionIds.length + 1,
-      }))
+      const createResult = await dispatch(createQuestionThunk(payload))
+      if (createResult.meta.requestStatus !== 'fulfilled') { toast.error('Failed to save question'); return }
+      const newId = createResult.payload.id
+      await dispatch(addQuestionsThunk({ quizId: quiz.id, questionIds: [newId] }))
       toast.success('Question added')
     } else {
-      dispatch(updateQuestion({ ...questionModal, ...payload }))
+      const result = await dispatch(updateQuestionThunk({ id: questionModal.id, data: payload }))
+      if (result.meta.requestStatus !== 'fulfilled') { toast.error('Failed to update question'); return }
       toast.success('Question updated')
     }
     closeQuestionModal()
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteQuestion(deleteTarget.id))
-    dispatch(updateQuiz({
-      ...quiz,
-      questionIds: quiz.questionIds.filter(x => x !== deleteTarget.id),
-      totalQuestions: quiz.questionIds.length - 1,
-    }))
-    toast.success('Question deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(removeQuestionThunk({ quizId: quiz.id, questionId: deleteTarget.id }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Question removed from quiz')
+    } else {
+      toast.error('Delete failed')
+    }
     setDeleteTarget(null)
   }
 
@@ -228,19 +230,18 @@ export default function QuizQuestions() {
     setExtractedQuestions(qs => qs.map((q, i) => i === idx ? { ...q, selected: !q.selected } : q))
   }
 
-  const handleAddExtracted = () => {
+  const handleAddExtracted = async () => {
     const selected = extractedQuestions.filter(q => q.selected)
     if (selected.length === 0) { toast.error('No questions selected'); return }
-    const newIds = selected.map((_, i) => Date.now() + i + 1)
-    selected.forEach(({ id: _id, selected: _sel, ...payload }, i) => {
-      dispatch(addQuestion({ ...payload, id: newIds[i] }))
-    })
-    dispatch(updateQuiz({
-      ...quiz,
-      questionIds: [...quiz.questionIds, ...newIds],
-      totalQuestions: quiz.questionIds.length + newIds.length,
-    }))
-    toast.success(`${newIds.length} question${newIds.length > 1 ? 's' : ''} added to quiz`)
+    const newIds = []
+    for (const { id: _id, selected: _sel, ...payload } of selected) {
+      const result = await dispatch(createQuestionThunk(payload))
+      if (result.meta.requestStatus === 'fulfilled') newIds.push(result.payload.id)
+    }
+    if (newIds.length > 0) {
+      await dispatch(addQuestionsThunk({ quizId: quiz.id, questionIds: newIds }))
+      toast.success(`${newIds.length} question${newIds.length > 1 ? 's' : ''} added to quiz`)
+    }
     setUploadOpen(false)
     setUploadedFile(null)
     setExtractedQuestions([])

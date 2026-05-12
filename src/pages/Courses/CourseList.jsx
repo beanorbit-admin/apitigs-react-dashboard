@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, Pencil, Trash2, Layers } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -8,7 +8,7 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addCourse, updateCourse, deleteCourse } from '../../store/slices/courseSlice'
+import { fetchCoursesThunk, fetchCategoriesThunk, createCourseThunk, updateCourseThunk, deleteCourseThunk } from '../../store/slices/courseSlice'
 import { formatCurrency } from '../../utils/formatters'
 import CourseFormModal from './CourseFormModal'
 
@@ -24,6 +24,11 @@ export default function CourseList() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+
+  useEffect(() => {
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchCategoriesThunk())
+  }, [dispatch])
 
   const filterConfigs = useMemo(() => [
     { key: 'category', label: 'All Categories', options: categories.map(c => c.name) },
@@ -50,21 +55,23 @@ export default function CourseList() {
   const openAdd = () => { setEditTarget(null); setModalOpen(true) }
   const openEdit = (c) => { setEditTarget(c); setModalOpen(true) }
 
-  const onSave = (data) => {
-    const cat = categories.find(c => c.id === Number(data.categoryId))
-    if (editTarget) {
-      dispatch(updateCourse({ ...editTarget, ...data, category: cat?.name || '' }))
-      toast.success('Course updated')
+  const onSave = async (data) => {
+    const payload = { ...data, category: Number(data.categoryId), teacherIds: data.teacherIds || [] }
+    const result = editTarget
+      ? await dispatch(updateCourseThunk({ id: editTarget.id, data: payload }))
+      : await dispatch(createCourseThunk(payload))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editTarget ? 'Course updated' : 'Course added')
+      setModalOpen(false)
     } else {
-      dispatch(addCourse({ ...data, id: Date.now(), category: cat?.name || '', teacherIds: data.teacherIds || [] }))
-      toast.success('Course added')
+      toast.error('Save failed')
     }
-    setModalOpen(false)
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteCourse(deleteTarget.id))
-    toast.success('Course deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteCourseThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Course deleted')
+    else toast.error('Delete failed')
     setDeleteTarget(null)
   }
 

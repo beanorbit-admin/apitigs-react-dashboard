@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, X, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -8,7 +8,7 @@ import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateEnrollment, deleteEnrollment } from '../../store/slices/enrollmentSlice'
+import { fetchEnrollmentsThunk, updateEnrollmentThunk, deleteEnrollmentThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
@@ -29,6 +29,8 @@ export default function EnrollmentsPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const enrollments = useAppSelector(state => state.enrollments.list)
+
+  useEffect(() => { dispatch(fetchEnrollmentsThunk()) }, [dispatch])
 
   const [tab, setTab] = useState('pending')
 
@@ -67,23 +69,25 @@ export default function EnrollmentsPage() {
     setApproveForm({ collectedAmount: '', paymentDate: '' })
   }
 
-  const onApprove = () => {
-    const newStatus = calcStatus(approveTarget.courseFee, approveForm.collectedAmount)
-    dispatch(updateEnrollment({
-      ...approveTarget,
-      accessStatus: 'granted',
-      enrollmentType: 'direct',
-      collectedAmount: Number(approveForm.collectedAmount) || 0,
-      paymentDate: approveForm.paymentDate || null,
-      status: newStatus,
+  const onApprove = async () => {
+    const result = await dispatch(updateEnrollmentThunk({
+      id: approveTarget.id,
+      data: {
+        accessStatus: 'granted',
+        enrollmentType: 'direct',
+        collectedAmount: Number(approveForm.collectedAmount) || 0,
+        paymentDate: approveForm.paymentDate || null,
+      },
     }))
-    toast.success(`${approveTarget.studentName} approved and access granted`)
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`${approveTarget.studentName} approved and access granted`)
+    else toast.error('Approval failed')
     setApproveTarget(null)
   }
 
-  const onReject = () => {
-    dispatch(deleteEnrollment(rejectTarget.id))
-    toast.success(`Enrollment request for ${rejectTarget.studentName} rejected`)
+  const onReject = async () => {
+    const result = await dispatch(deleteEnrollmentThunk(rejectTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`Enrollment request for ${rejectTarget.studentName} rejected`)
+    else toast.error('Rejection failed')
     setRejectTarget(null)
   }
 
@@ -149,15 +153,16 @@ export default function EnrollmentsPage() {
     setEditForm({ collectedAmount: e.collectedAmount, paymentDate: e.paymentDate || '' })
   }
 
-  const onSaveEdit = () => {
-    const newStatus = calcStatus(editTarget.courseFee, editForm.collectedAmount)
-    dispatch(updateEnrollment({
-      ...editTarget,
-      collectedAmount: Number(editForm.collectedAmount),
-      paymentDate: editForm.paymentDate || null,
-      status: newStatus,
+  const onSaveEdit = async () => {
+    const result = await dispatch(updateEnrollmentThunk({
+      id: editTarget.id,
+      data: {
+        collectedAmount: Number(editForm.collectedAmount),
+        paymentDate: editForm.paymentDate || null,
+      },
     }))
-    toast.success('Payment details updated')
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Payment details updated')
+    else toast.error('Update failed')
     setEditTarget(null)
   }
 

@@ -13,15 +13,10 @@ import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
-  setCourseContent,
-  addLesson, updateLesson, deleteLesson,
+  fetchSemestersThunk, fetchSubjectsThunk, fetchChaptersThunk,
+  fetchLessonsThunk, createLessonThunk, updateLessonThunk, deleteLessonThunk,
 } from '../../store/slices/courseContentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import {
-  semesters as mockSemesters, subjects as mockSubjects,
-  chapters as mockChapters, lessons as mockLessons,
-} from '../../mock/courseContent'
-import { courses as mockCourses } from '../../mock/courses'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 const VIDEO_TYPE_LABELS   = { youtube: 'YouTube', streaming: 'Streaming', m3u8: 'M3U8' }
 const VIDEO_TYPE_VARIANTS = { youtube: 'danger', streaming: 'info', m3u8: 'purple' }
@@ -64,11 +59,12 @@ export default function ChapterView() {
   const lessonForm = useForm()
 
   useEffect(() => {
-    if (courses.length === 0) dispatch(setCourses(mockCourses))
-    if (semesters.length === 0) {
-      dispatch(setCourseContent({ semesters: mockSemesters, subjects: mockSubjects, chapters: mockChapters, lessons: mockLessons }))
-    }
-  }, [courses.length, semesters.length, dispatch])
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchSemestersThunk({ course: courseId }))
+    dispatch(fetchSubjectsThunk({ semester: semesterId }))
+    dispatch(fetchChaptersThunk({ subject: subjectId }))
+    dispatch(fetchLessonsThunk({ chapter: chapterId }))
+  }, [dispatch, courseId, semesterId, subjectId, chapterId])
 
   const course   = courses.find(c => c.id === Number(courseId))
   const semester = semesters.find(s => s.id === Number(semesterId))
@@ -103,15 +99,8 @@ export default function ChapterView() {
     setLessonModal(true)
   }
 
-  const onSave = (data) => {
-    const base = {
-      chapterId: Number(chapterId),
-      subjectId: Number(subjectId),
-      semesterId: Number(semesterId),
-      courseId: Number(courseId),
-      name: data.name,
-      type: lessonType,
-    }
+  const onSave = async (data) => {
+    const base = { chapter: Number(chapterId), name: data.name, type: lessonType, order: chLessons.length + 1 }
     const payload = lessonType === 'pdf'
       ? { ...base, pdfUrl: data.pdfUrl, isDownloadable: !!data.isDownloadable }
       : {
@@ -122,19 +111,27 @@ export default function ChapterView() {
           ...(videoType === 'streaming' ? { streamingPlatform: data.streamingPlatform, streamingKey: data.streamingKey } : {}),
         }
 
+    let result
     if (editLesson) {
-      dispatch(updateLesson({ ...editLesson, ...payload }))
-      toast.success('Lesson updated')
+      result = await dispatch(updateLessonThunk({ id: editLesson.id, data: payload }))
     } else {
-      dispatch(addLesson({ ...payload, id: Date.now(), order: chLessons.length + 1 }))
-      toast.success('Lesson added')
+      result = await dispatch(createLessonThunk(payload))
     }
-    setLessonModal(false)
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(editLesson ? 'Lesson updated' : 'Lesson added')
+      setLessonModal(false)
+    } else {
+      toast.error('Save failed')
+    }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteLesson(deleteTarget.id))
-    toast.success('Lesson deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteLessonThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Lesson deleted')
+    } else {
+      toast.error('Delete failed')
+    }
     setDeleteTarget(null)
   }
 

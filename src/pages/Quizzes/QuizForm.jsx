@@ -7,7 +7,9 @@ import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addQuiz, updateQuiz } from '../../store/slices/quizSlice'
+import { fetchQuizzesThunk, createQuizThunk, updateQuizThunk, addQuestionsThunk } from '../../store/slices/quizSlice'
+import { fetchQuestionsThunk } from '../../store/slices/questionSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 export default function QuizForm() {
   const { id } = useParams()
@@ -28,6 +30,12 @@ export default function QuizForm() {
   })
   const [pickerOpen, setPickerOpen] = useState(false)
   const [qSearch, setQSearch] = useState('')
+
+  useEffect(() => {
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchQuestionsThunk())
+    if (isEdit) dispatch(fetchQuizzesThunk())
+  }, [dispatch, isEdit])
 
   useEffect(() => {
     if (existing) {
@@ -60,25 +68,31 @@ export default function QuizForm() {
 
   const removeQuestion = (qid) => setForm(f => ({ ...f, questionIds: f.questionIds.filter(id => id !== qid) }))
 
-  const handleSave = (status) => {
+  const handleSave = async (status) => {
     if (!form.title) { toast.error('Quiz title is required'); return }
-    const course = courses.find(c => c.id === Number(form.courseId))
     const payload = {
-      ...form,
-      courseId: Number(form.courseId),
-      courseName: course?.title || '',
-      totalQuestions: form.questionIds.length,
-      timerMinutes: form.timerEnabled ? form.timerMinutes : 0,
+      title: form.title,
+      course: Number(form.courseId),
+      description: form.description,
+      timerMinutes: form.timerEnabled ? Number(form.timerMinutes) : 0,
+      passScore: Number(form.passScore),
+      attempts: Number(form.attempts),
       status,
     }
-    if (isEdit) {
-      dispatch(updateQuiz({ ...existing, ...payload }))
-      toast.success('Quiz updated')
+    const result = isEdit
+      ? await dispatch(updateQuizThunk({ id: existing.id, data: payload }))
+      : await dispatch(createQuizThunk(payload))
+
+    if (result.meta.requestStatus === 'fulfilled') {
+      const quizId = result.payload.id
+      if (form.questionIds.length > 0) {
+        await dispatch(addQuestionsThunk({ quizId, questionIds: form.questionIds }))
+      }
+      toast.success(isEdit ? 'Quiz updated' : 'Quiz created')
+      navigate('/quizzes')
     } else {
-      dispatch(addQuiz({ ...payload, id: Date.now() }))
-      toast.success('Quiz created')
+      toast.error('Save failed')
     }
-    navigate('/quizzes')
   }
 
   const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }

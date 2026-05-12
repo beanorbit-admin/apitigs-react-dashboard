@@ -3,16 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { setCredentials } from '../../store/slices/authSlice'
+import { loginThunk } from '../../store/slices/authSlice'
 import Button from '../../components/common/Button'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [loginError, setLoginError] = useState('')
-  const [loading, setLoading] = useState(false)
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { token } = useAppSelector(state => state.auth)
+  const { token, loading, error } = useAppSelector(state => state.auth)
 
   useEffect(() => {
     if (token) navigate('/dashboard', { replace: true })
@@ -21,17 +19,7 @@ export default function LoginPage() {
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
-    setLoading(true)
-    setLoginError('')
-    await new Promise(r => setTimeout(r, 800))
-
-    const role = data.email.toLowerCase().includes('admin') ? 'admin' : 'teacher'
-    const fakeToken = `mock-token-${Date.now()}`
-    const user = { name: role === 'admin' ? 'Admin User' : 'Teacher User', email: data.email }
-
-    dispatch(setCredentials({ token: fakeToken, role, user }))
-    navigate('/dashboard', { replace: true })
-    setLoading(false)
+    dispatch(loginThunk({ email: data.email, password: data.password }))
   }
 
   return (
@@ -124,19 +112,15 @@ export default function LoginPage() {
               <label htmlFor="remember" className="text-sm text-gray-600">Remember me</label>
             </div>
 
-            {loginError && (
+            {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                {loginError}
+                {error}
               </p>
             )}
 
             <Button type="submit" loading={loading} className="w-full justify-center py-2.5">
               Sign In
             </Button>
-
-            <p className="text-xs text-center text-gray-400 mt-4">
-              Tip: use "admin@..." email for admin role, anything else for teacher role
-            </p>
           </form>
         </div>
       </div>

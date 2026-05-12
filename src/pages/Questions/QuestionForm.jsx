@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addQuestion, updateQuestion } from '../../store/slices/questionSlice'
+import { fetchQuestionsThunk, createQuestionThunk, updateQuestionThunk } from '../../store/slices/questionSlice'
 
 export default function QuestionForm() {
   const { id } = useParams()
@@ -24,6 +24,8 @@ export default function QuestionForm() {
   const [hint, setHint] = useState('')
   const [trueFalseAnswer, setTrueFalseAnswer] = useState(true)
 
+  useEffect(() => { if (isEdit) dispatch(fetchQuestionsThunk()) }, [isEdit, dispatch])
+
   useEffect(() => {
     if (existing) {
       setType(existing.type)
@@ -41,7 +43,7 @@ export default function QuestionForm() {
     }
   }, [existing])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!text.trim()) { toast.error('Question text is required'); return }
     const base = { type, text, marks: Number(marks) }
     let payload
@@ -49,14 +51,16 @@ export default function QuestionForm() {
     else if (type === 'FillBlank') payload = { ...base, correctAnswer, hint }
     else payload = { ...base, correctAnswer: trueFalseAnswer }
 
-    if (isEdit) {
-      dispatch(updateQuestion({ ...existing, ...payload }))
-      toast.success('Question updated')
+    const result = isEdit
+      ? await dispatch(updateQuestionThunk({ id: existing.id, data: payload }))
+      : await dispatch(createQuestionThunk(payload))
+
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(isEdit ? 'Question updated' : 'Question added')
+      navigate('/questions')
     } else {
-      dispatch(addQuestion({ ...payload, id: Date.now() }))
-      toast.success('Question added')
+      toast.error('Save failed')
     }
-    navigate('/questions')
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -8,7 +8,7 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { deleteQuestion } from '../../store/slices/questionSlice'
+import { fetchQuestionsThunk, deleteQuestionThunk } from '../../store/slices/questionSlice'
 
 const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }
 const PAGE_SIZE = 10
@@ -24,6 +24,8 @@ export default function QuestionList() {
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
   const [deleteTarget, setDeleteTarget] = useState(null)
+
+  useEffect(() => { dispatch(fetchQuestionsThunk()) }, [dispatch])
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
@@ -41,9 +43,10 @@ export default function QuestionList() {
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
-  const confirmDelete = () => {
-    dispatch(deleteQuestion(deleteTarget.id))
-    toast.success('Question deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteQuestionThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Question deleted')
+    else toast.error('Delete failed')
     setDeleteTarget(null)
   }
 

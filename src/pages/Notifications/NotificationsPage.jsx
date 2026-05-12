@@ -11,14 +11,11 @@ import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
-  setNotifications, markAsRead, markAllAsRead,
-  sendNotification, addScheduled, deleteScheduled,
+  fetchNotificationsThunk, markAsReadThunk, markAllAsReadThunk,
+  fetchScheduledThunk, createScheduledThunk, deleteScheduledThunk,
 } from '../../store/slices/notificationSlice'
-import { setStudents } from '../../store/slices/studentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import { notifications as mockNotifications } from '../../mock/notifications'
-import { students as mockStudents } from '../../mock/students'
-import { courses as mockCourses } from '../../mock/courses'
+import { fetchStudentsThunk } from '../../store/slices/studentSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 import { formatDistanceToNow, formatDate } from '../../utils/formatters'
 
 const PAGE_SIZE = 10
@@ -124,23 +121,18 @@ function CreateNotificationModal({ isOpen, onClose, courses, students }) {
     reset(); onClose()
   }
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!validate(true)) return
-    dispatch(addScheduled({
-      id: Date.now(),
-      title: form.title,
+    const result = await dispatch(createScheduledThunk({
       message: form.message,
-      image: form.image,
-      recipientType: form.recipientType,
-      courseId: form.courseId ? Number(form.courseId) : null,
-      studentIds: form.studentIds,
-      recipientLabel: recipientLabel(),
-      scheduleDate: form.scheduleDate,
-      scheduleTime: form.scheduleTime,
-      status: 'Scheduled',
-      createdAt: new Date().toISOString(),
+      target: form.recipientType === 'all-students' ? 'all_students'
+        : form.recipientType === 'course-students' ? 'course_students'
+        : 'all_teachers',
+      course: form.courseId ? Number(form.courseId) : null,
+      scheduledAt: `${form.scheduleDate}T${form.scheduleTime}:00`,
     }))
-    toast.success('Notification scheduled')
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Notification scheduled')
+    else toast.error('Failed to schedule')
     reset(); onClose()
   }
 
@@ -341,10 +333,11 @@ export default function NotificationsPage() {
   const [scheduledQuery, setScheduledQuery] = useState({ search: '', filters: {}, page: 1 })
 
   useEffect(() => {
-    if (notifications.length === 0) dispatch(setNotifications(mockNotifications))
-    if (students.length === 0)      dispatch(setStudents(mockStudents))
-    if (courses.length === 0)       dispatch(setCourses(mockCourses))
-  }, [dispatch, notifications.length, students.length, courses.length])
+    dispatch(fetchNotificationsThunk())
+    dispatch(fetchScheduledThunk())
+    dispatch(fetchStudentsThunk())
+    dispatch(fetchCoursesThunk())
+  }, [dispatch])
 
   // ── Sent table data ────────────────────────────────────────────────────────
   const { rows: sentRows, total: sentTotal } = useMemo(() => {
@@ -438,7 +431,7 @@ export default function NotificationsPage() {
       header: 'Actions',
       cell: n => (
         <button
-          onClick={() => { dispatch(deleteScheduled(n.id)); toast.success('Scheduled notification removed') }}
+          onClick={async () => { const r = await dispatch(deleteScheduledThunk(n.id)); if (r.meta.requestStatus === 'fulfilled') toast.success('Scheduled notification removed'); else toast.error('Delete failed') }}
           className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
           title="Delete"
         >
@@ -478,7 +471,7 @@ export default function NotificationsPage() {
 
         <div className="flex items-center gap-2">
           {tab === 'inbox' && unreadCount > 0 && (
-            <Button variant="secondary" size="sm" onClick={() => { dispatch(markAllAsRead()); toast.success('All marked as read') }}>
+            <Button variant="secondary" size="sm" onClick={async () => { await dispatch(markAllAsReadThunk()); toast.success('All marked as read') }}>
               <CheckCheck className="h-4 w-4" />
               Mark all as read
             </Button>
@@ -502,7 +495,7 @@ export default function NotificationsPage() {
             return (
               <div key={n.id} className={!n.read ? 'border-l-4 border-indigo-500' : ''}>
                 <button
-                  onClick={() => { dispatch(markAsRead(n.id)); setExpandedId(prev => prev === n.id ? null : n.id) }}
+                  onClick={() => { dispatch(markAsReadThunk(n.id)); setExpandedId(prev => prev === n.id ? null : n.id) }}
                   className="w-full text-left px-6 py-4 hover:bg-gray-50 transition flex items-start gap-4"
                 >
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>

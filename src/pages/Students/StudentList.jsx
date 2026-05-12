@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -10,7 +10,7 @@ import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import Badge from '../../components/common/Badge'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateStudent, deleteStudent } from '../../store/slices/studentSlice'
+import { updateStudent, deleteStudent, fetchStudentsThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
 
 const PAGE_SIZE = 10
 
@@ -25,6 +25,8 @@ export default function StudentList() {
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  useEffect(() => { dispatch(fetchStudentsThunk()) }, [dispatch])
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
@@ -45,25 +47,34 @@ export default function StudentList() {
 
   const openEdit = (student) => { setEditTarget(student); reset(student); setModalOpen(true) }
 
-  const onSave = (data) => {
-    dispatch(updateStudent({
-      ...editTarget,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      name: `${data.firstName} ${data.lastName}`,
-      email: data.email,
-      countryCode: data.countryCode,
-      phone: data.phone,
-      place: data.place,
+  const onSave = async (data) => {
+    const result = await dispatch(updateStudentThunk({
+      id: editTarget.id,
+      data: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        countryCode: data.countryCode,
+        phone: data.phone,
+        place: data.place,
+      },
     }))
-    toast.success('Student updated')
-    setModalOpen(false)
-    reset()
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Student updated')
+      setModalOpen(false)
+      reset()
+    } else {
+      toast.error('Failed to update student')
+    }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteStudent(deleteTarget.id))
-    toast.success('Student deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteStudentThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Student deleted')
+    } else {
+      toast.error('Failed to delete student')
+    }
     setDeleteTarget(null)
   }
 

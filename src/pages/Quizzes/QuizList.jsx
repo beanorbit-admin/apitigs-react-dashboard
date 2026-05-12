@@ -8,10 +8,8 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { setQuizzes, deleteQuiz } from '../../store/slices/quizSlice'
-import { setQuestions } from '../../store/slices/questionSlice'
-import { quizzes as mockQuizzes } from '../../mock/quizzes'
-import { questions as mockQuestions } from '../../mock/questions'
+import { fetchQuizzesThunk, deleteQuizThunk } from '../../store/slices/quizSlice'
+import { fetchQuestionsThunk } from '../../store/slices/questionSlice'
 
 const PAGE_SIZE = 10
 
@@ -27,9 +25,9 @@ export default function QuizList() {
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
 
   useEffect(() => {
-    if (quizzes.length === 0) dispatch(setQuizzes(mockQuizzes))
-    dispatch(setQuestions(mockQuestions))
-  }, [dispatch, quizzes.length])
+    dispatch(fetchQuizzesThunk())
+    dispatch(fetchQuestionsThunk())
+  }, [dispatch])
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
@@ -47,9 +45,10 @@ export default function QuizList() {
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
-  const confirmDelete = () => {
-    dispatch(deleteQuiz(deleteTarget.id))
-    toast.success('Quiz deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteQuizThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Quiz deleted')
+    else toast.error('Delete failed')
     setDeleteTarget(null)
   }
 

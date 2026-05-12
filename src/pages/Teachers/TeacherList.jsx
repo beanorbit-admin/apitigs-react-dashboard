@@ -9,10 +9,8 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { addTeacher, updateTeacher, deleteTeacher, setTeachers } from '../../store/slices/teacherSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import { teachers as mockTeachers } from '../../mock/teachers'
-import { courses as mockCourses } from '../../mock/courses'
+import { fetchTeachersThunk, createTeacherThunk, updateTeacherThunk, deleteTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 const PAGE_SIZE = 10
 const FILTER_CONFIGS = [
@@ -55,9 +53,9 @@ export default function TeacherList() {
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm()
 
   useEffect(() => {
-    if (teachers.length === 0) dispatch(setTeachers(mockTeachers))
-    if (courses.length === 0) dispatch(setCourses(mockCourses))
-  }, [dispatch, teachers.length, courses.length])
+    dispatch(fetchTeachersThunk())
+    dispatch(fetchCoursesThunk())
+  }, [dispatch])
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
@@ -98,29 +96,35 @@ export default function TeacherList() {
   const toggleCourse = (cid) =>
     setCourseIds(prev => prev.includes(cid) ? prev.filter(id => id !== cid) : [...prev, cid])
 
-  const onSave = (data) => {
+  const onSave = async (data) => {
     const payload = {
-      name: data.name,
+      firstName: data.name.split(' ')[0],
+      lastName: data.name.split(' ').slice(1).join(' ') || '',
       email: data.email,
       countryCode: '+91',
       phone: data.phone,
       status: isActive ? 'Active' : 'Inactive',
-      courseIds,
+      password: data.password || undefined,
     }
     if (editTarget) {
-      dispatch(updateTeacher({ ...editTarget, ...payload }))
-      toast.success('Teacher updated')
-      closeModal()
+      const result = await dispatch(updateTeacherThunk({ id: editTarget.id, data: payload }))
+      if (result.meta.requestStatus === 'fulfilled') { toast.success('Teacher updated'); closeModal() }
+      else toast.error('Update failed')
     } else {
-      dispatch(addTeacher({ ...payload, id: Date.now() }))
-      setCredentials({ email: data.email, password: data.password })
-      toast.success('Teacher added — share credentials')
+      const result = await dispatch(createTeacherThunk(payload))
+      if (result.meta.requestStatus === 'fulfilled') {
+        setCredentials({ email: data.email, password: data.password })
+        toast.success('Teacher added — share credentials')
+      } else {
+        toast.error('Failed to add teacher')
+      }
     }
   }
 
-  const confirmDelete = () => {
-    dispatch(deleteTeacher(deleteTarget.id))
-    toast.success('Teacher deleted')
+  const confirmDelete = async () => {
+    const result = await dispatch(deleteTeacherThunk(deleteTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher deleted')
+    else toast.error('Delete failed')
     setDeleteTarget(null)
   }
 

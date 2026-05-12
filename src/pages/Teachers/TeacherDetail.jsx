@@ -1,13 +1,14 @@
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X, Copy, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateTeacher } from '../../store/slices/teacherSlice'
+import { fetchTeachersThunk, updateTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -28,6 +29,11 @@ export default function TeacherDetail() {
   const [newPw, setNewPw] = useState('')
   const [addCourseId, setAddCourseId] = useState('')
 
+  useEffect(() => {
+    dispatch(fetchTeachersThunk())
+    dispatch(fetchCoursesThunk())
+  }, [dispatch])
+
   if (!teacher) return (
     <PageWrapper title="Teacher Detail">
       <p className="text-gray-500">Teacher not found.</p>
@@ -37,22 +43,29 @@ export default function TeacherDetail() {
   const assignedCourses = courses.filter(c => (teacher.courseIds || []).includes(c.id))
   const unassigned = courses.filter(c => !(teacher.courseIds || []).includes(c.id))
 
-  const removeCourse = (cid) => {
-    dispatch(updateTeacher({ ...teacher, courseIds: teacher.courseIds.filter(id => id !== cid) }))
-    toast.success('Course removed')
+  const removeCourse = async (cid) => {
+    const newIds = (teacher.courseIds || []).filter(x => x !== cid)
+    const result = await dispatch(updateTeacherThunk({ id: teacher.id, data: { courseIds: newIds } }))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Course removed')
+    else toast.error('Remove failed')
   }
 
-  const addCourse = () => {
+  const addCourse = async () => {
     if (!addCourseId) return
-    dispatch(updateTeacher({ ...teacher, courseIds: [...(teacher.courseIds || []), Number(addCourseId)] }))
-    setAddCourseId('')
-    toast.success('Course added')
+    const newIds = [...(teacher.courseIds || []), Number(addCourseId)]
+    const result = await dispatch(updateTeacherThunk({ id: teacher.id, data: { courseIds: newIds } }))
+    if (result.meta.requestStatus === 'fulfilled') { setAddCourseId(''); toast.success('Course added') }
+    else toast.error('Add failed')
   }
 
-  const resetPassword = () => {
-    const pw = genPassword()
-    setNewPw(pw)
-    setPwModal(true)
+  const resetPassword = async () => {
+    const result = await dispatch(resetTeacherPasswordThunk(teacher.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      setNewPw(result.payload?.tempPassword || genPassword())
+      setPwModal(true)
+    } else {
+      toast.error('Reset failed')
+    }
   }
 
   return (

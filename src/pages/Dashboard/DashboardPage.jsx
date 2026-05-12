@@ -4,18 +4,9 @@ import { Users, BookOpen, GraduationCap, UserCheck, UserPlus, ClipboardList, Cal
 import PageWrapper from '../../components/layout/PageWrapper'
 import Badge from '../../components/common/Badge'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { setStudents } from '../../store/slices/studentSlice'
-import { setCourses } from '../../store/slices/courseSlice'
-import { setEnrollments } from '../../store/slices/enrollmentSlice'
-import { setTeachers } from '../../store/slices/teacherSlice'
-import { setNotifications } from '../../store/slices/notificationSlice'
-import { students as mockStudents } from '../../mock/students'
-import { courses as mockCourses, categories as mockCategories } from '../../mock/courses'
-import { enrollments as mockEnrollments } from '../../mock/enrollments'
-import { teachers as mockTeachers } from '../../mock/teachers'
-import { notifications as mockNotifications } from '../../mock/notifications'
-import { setCategories } from '../../store/slices/courseSlice'
-import { formatDate, formatCurrency } from '../../utils/formatters'
+import { fetchDashboardStatsThunk } from '../../store/slices/courseSlice'
+import { fetchEnrollmentsThunk } from '../../store/slices/enrollmentSlice'
+import { formatDate } from '../../utils/formatters'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
 
@@ -27,7 +18,7 @@ function StatCard({ icon: Icon, label, value, color }) {
       </div>
       <div>
         <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-2xl font-bold text-gray-900">{value ?? '—'}</p>
       </div>
     </div>
   )
@@ -50,30 +41,24 @@ function QuickCard({ icon: Icon, label, to, color, navigate }) {
 export default function DashboardPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const students = useAppSelector(state => state.students.list)
-  const courses = useAppSelector(state => state.courses.list)
+  const stats = useAppSelector(state => state.courses.stats)
   const enrollments = useAppSelector(state => state.enrollments.list)
-  const teachers = useAppSelector(state => state.teachers.list)
 
   useEffect(() => {
-    dispatch(setStudents(mockStudents))
-    dispatch(setCourses(mockCourses))
-    dispatch(setCategories(mockCategories))
-    dispatch(setEnrollments(mockEnrollments))
-    dispatch(setTeachers(mockTeachers))
-    dispatch(setNotifications(mockNotifications))
+    dispatch(fetchDashboardStatsThunk())
+    dispatch(fetchEnrollmentsThunk({ page_size: 5, ordering: '-created_at' }))
   }, [dispatch])
 
-  const recentEnrollments = [...enrollments].slice(-5).reverse()
+  const recentEnrollments = enrollments.slice(0, 5)
 
   return (
     <PageWrapper title="Dashboard">
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Users} label="Total Students" value={students.length} color="bg-indigo-100 text-indigo-600" />
-        <StatCard icon={BookOpen} label="Active Enrollments" value={enrollments.length} color="bg-emerald-100 text-emerald-600" />
-        <StatCard icon={GraduationCap} label="Total Courses" value={courses.length} color="bg-amber-100 text-amber-600" />
-        <StatCard icon={UserCheck} label="Total Teachers" value={teachers.length} color="bg-purple-100 text-purple-600" />
+        <StatCard icon={Users} label="Total Students" value={stats?.totalStudents} color="bg-indigo-100 text-indigo-600" />
+        <StatCard icon={BookOpen} label="Active Enrollments" value={stats?.activeEnrollments} color="bg-emerald-100 text-emerald-600" />
+        <StatCard icon={GraduationCap} label="Total Courses" value={stats?.totalCourses} color="bg-amber-100 text-amber-600" />
+        <StatCard icon={UserCheck} label="Total Teachers" value={stats?.totalTeachers} color="bg-purple-100 text-purple-600" />
       </div>
 
       {/* Recent Enrollments */}

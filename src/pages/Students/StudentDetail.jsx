@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
@@ -10,8 +10,9 @@ import Modal from '../../components/common/Modal'
 import Table from '../../components/common/Table'
 import Input from '../../components/common/Input'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateStudent, deleteStudent } from '../../store/slices/studentSlice'
-import { addEnrollment } from '../../store/slices/enrollmentSlice'
+import { fetchStudentThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { fetchEnrollmentsThunk, createEnrollmentThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
@@ -27,9 +28,15 @@ export default function StudentDetail() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
 
-  const student = useAppSelector(state => state.students.list.find(s => s.id === Number(id)))
+  const student = useAppSelector(state => state.students.selected?.id === Number(id) ? state.students.selected : state.students.list.find(s => s.id === Number(id)))
   const courses = useAppSelector(state => state.courses.list)
-  const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.studentId === Number(id)))
+  const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.student === Number(id)))
+
+  useEffect(() => {
+    dispatch(fetchStudentThunk(id))
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchEnrollmentsThunk({ student: id }))
+  }, [dispatch, id])
 
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -44,47 +51,41 @@ export default function StudentDetail() {
     </PageWrapper>
   )
 
-  const enrolledCourseIds = enrollments.map(e => e.courseId)
+  const enrolledCourseIds = enrollments.map(e => e.course)
   const availableCourses = courses.filter(c => !enrolledCourseIds.includes(c.id))
   const selectedCourse = courses.find(c => c.id === Number(selectedCourseId))
 
-  const onEditSave = (data) => {
-    dispatch(updateStudent({
-      ...student,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      name: `${data.firstName} ${data.lastName}`,
-      email: data.email,
-      countryCode: data.countryCode,
-      phone: data.phone,
-      place: data.place,
+  const onEditSave = async (data) => {
+    const result = await dispatch(updateStudentThunk({
+      id: student.id,
+      data: { firstName: data.firstName, lastName: data.lastName, email: data.email, countryCode: data.countryCode, phone: data.phone, place: data.place },
     }))
-    toast.success('Student updated')
-    setEditOpen(false)
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Student updated'); setEditOpen(false) }
+    else toast.error('Failed to update')
   }
 
-  const onDelete = () => {
-    dispatch(deleteStudent(student.id))
-    toast.success('Student deleted')
-    navigate('/students')
+  const onDelete = async () => {
+    const result = await dispatch(deleteStudentThunk(student.id))
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Student deleted'); navigate('/students') }
+    else toast.error('Failed to delete')
   }
 
-  const onEnroll = () => {
+  const onEnroll = async () => {
     if (!selectedCourseId) return
-    dispatch(addEnrollment({
-      id: Date.now(),
-      studentId: student.id,
-      studentName: student.name,
-      courseId: selectedCourse.id,
-      courseName: selectedCourse.title,
+    const result = await dispatch(createEnrollmentThunk({
+      student: student.id,
+      course: selectedCourse.id,
       courseFee: selectedCourse.fee,
       collectedAmount: 0,
-      paymentDate: null,
-      status: 'Pending',
-      accessStatus: 'granted',
       enrollmentType: 'direct',
+      accessStatus: 'granted',
     }))
-    toast.success(`Enrolled in ${selectedCourse.title}`)
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(`Enrolled in ${selectedCourse.title}`)
+      dispatch(fetchEnrollmentsThunk({ student: id }))
+    } else {
+      toast.error('Enrollment failed')
+    }
     setEnrollOpen(false)
     setSelectedCourseId('')
   }

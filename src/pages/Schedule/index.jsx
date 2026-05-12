@@ -10,17 +10,11 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
-  setCourseSchedules, addCourseSchedule, updateCourseSchedule, setSelectedSchedule,
-  setEvents, addEvent, updateEvent,
+  setSelectedSchedule,
+  fetchEventsThunk, fetchCourseSchedulesThunk, createEventThunk, updateEventThunk, deleteEventThunk,
+  createCourseScheduleThunk, updateCourseScheduleThunk,
 } from '../../store/slices/scheduleSlice'
-import { setCourseContent } from '../../store/slices/courseContentSlice'
-import { courseSchedules as mockSchedules, events as mockEvents } from '../../mock/schedule'
-import {
-  semesters as mockSemesters,
-  subjects as mockSubjects,
-  chapters as mockChapters,
-  lessons as mockLessons,
-} from '../../mock/courseContent'
+import { fetchSemestersThunk, fetchSubjectsThunk, fetchChaptersThunk, fetchLessonsThunk } from '../../store/slices/courseContentSlice'
 
 const TYPE_COLORS = { LiveClass: '#3B82F6', Exam: '#EF4444', Activity: '#F59E0B' }
 const TYPE_BADGE = { LiveClass: 'info', Exam: 'danger', Activity: 'warning' }
@@ -98,38 +92,33 @@ function StudyScheduleTab() {
     setScheduleModalOpen(true)
   }
 
-  const saveSchedule = () => {
+  const saveSchedule = async () => {
     if (!sForm.startDate || !sForm.endDate) {
       toast.error('Start date and end date are required')
       return
     }
-    const course = courses.find(c => c.id === activeCourseId)
-    const sem = semesters.find(s => s.id === activeSemesterId)
     if (isEditingDuration) {
-      const updated = {
-        ...selectedSchedule,
-        startDate: sForm.startDate,
-        endDate: sForm.endDate,
-        weeks: Number(sForm.weeks),
-      }
-      dispatch(updateCourseSchedule(updated))
-      dispatch(setSelectedSchedule(updated))
-      toast.success('Duration updated')
+      const result = await dispatch(updateCourseScheduleThunk({
+        id: selectedSchedule.id,
+        data: { startDate: sForm.startDate, endDate: sForm.endDate, weeks: Number(sForm.weeks) },
+      }))
+      if (result.meta.requestStatus === 'fulfilled') {
+        dispatch(setSelectedSchedule(result.payload))
+        toast.success('Duration updated')
+      } else toast.error('Update failed')
     } else {
-      const newSchedule = {
-        id: Date.now(),
-        courseId: activeCourseId,
-        courseName: course?.title || '',
-        semesterId: activeSemesterId,
-        semesterName: sem?.name || '',
+      const result = await dispatch(createCourseScheduleThunk({
+        course: activeCourseId,
+        semester: activeSemesterId,
         startDate: sForm.startDate,
         endDate: sForm.endDate,
         weeks: Number(sForm.weeks),
         days: [],
-      }
-      dispatch(addCourseSchedule(newSchedule))
-      dispatch(setSelectedSchedule(newSchedule))
-      toast.success('Schedule created')
+      }))
+      if (result.meta.requestStatus === 'fulfilled') {
+        dispatch(setSelectedSchedule(result.payload))
+        toast.success('Schedule created')
+      } else toast.error('Create failed')
     }
     setScheduleModalOpen(false)
   }
@@ -139,14 +128,17 @@ function StudyScheduleTab() {
     return selectedSchedule.days.find(d => d.week === week && d.day === day)?.lessons || []
   }
 
-  const removeLesson = (week, day, idx) => {
+  const removeLesson = async (week, day, idx) => {
     const updatedDays = selectedSchedule.days.map(d => {
       if (d.week !== week || d.day !== day) return d
       return { ...d, lessons: d.lessons.filter((_, i) => i !== idx) }
     })
-    const updated = { ...selectedSchedule, days: updatedDays }
-    dispatch(updateCourseSchedule(updated))
-    dispatch(setSelectedSchedule(updated))
+    const result = await dispatch(updateCourseScheduleThunk({ id: selectedSchedule.id, data: { days: updatedDays } }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      dispatch(setSelectedSchedule(result.payload))
+    } else {
+      toast.error('Failed to remove lesson')
+    }
   }
 
   const openLessonPicker = (week, day) => {
@@ -169,7 +161,7 @@ function StudyScheduleTab() {
   const toggleLesson = (id) =>
     setPickerSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  const addSelectedLessons = () => {
+  const addSelectedLessons = async () => {
     if (!pickerContext || pickerSelected.length === 0) {
       toast.error('Select at least one lesson')
       return
@@ -192,11 +184,14 @@ function StudyScheduleTab() {
           i === existingIdx ? { ...d, lessons: [...d.lessons, ...newLessons] } : d
         )
       : [...selectedSchedule.days, { week, day, lessons: newLessons }]
-    const updated = { ...selectedSchedule, days: updatedDays }
-    dispatch(updateCourseSchedule(updated))
-    dispatch(setSelectedSchedule(updated))
-    setLessonPickerOpen(false)
-    toast.success(`${newLessons.length} lesson${newLessons.length > 1 ? 's' : ''} added`)
+    const result = await dispatch(updateCourseScheduleThunk({ id: selectedSchedule.id, data: { days: updatedDays } }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      dispatch(setSelectedSchedule(result.payload))
+      setLessonPickerOpen(false)
+      toast.success(`${newLessons.length} lesson${newLessons.length > 1 ? 's' : ''} added`)
+    } else {
+      toast.error('Failed to add lessons')
+    }
   }
 
   const activeCourse = courses.find(c => c.id === activeCourseId)
@@ -575,7 +570,7 @@ function EventsTab() {
     setEventModalOpen(true)
   }
 
-  const saveEvent = () => {
+  const saveEvent = async () => {
     if (!eForm.title || !eForm.date) { toast.error('Title and date are required'); return }
     const course = courses.find(c => c.id === Number(eForm.courseId))
     const paper = subjects.find(s => s.id === Number(eForm.paperId))
@@ -591,12 +586,27 @@ function EventsTab() {
       teacherName: teacher?.name || '',
       link: eForm.type === 'LiveClass' ? eForm.link : null,
     }
+    const apiPayload = {
+      title: payload.title,
+      type: payload.type,
+      course: payload.courseId || null,
+      semester: payload.semesterId || null,
+      subject: payload.paperId || null,
+      teacher: payload.teacherId || null,
+      date: payload.date,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      link: payload.link || '',
+      targetStudents: payload.targetStudents || 'all',
+    }
     if (editEvent) {
-      dispatch(updateEvent({ ...editEvent, ...payload }))
-      toast.success('Event updated')
+      const result = await dispatch(updateEventThunk({ id: editEvent.id, data: apiPayload }))
+      if (result.meta.requestStatus === 'fulfilled') toast.success('Event updated')
+      else toast.error('Update failed')
     } else {
-      dispatch(addEvent({ ...payload, id: Date.now() }))
-      toast.success('Event created')
+      const result = await dispatch(createEventThunk(apiPayload))
+      if (result.meta.requestStatus === 'fulfilled') toast.success('Event created')
+      else toast.error('Create failed')
     }
     setEventModalOpen(false)
   }
@@ -896,17 +906,13 @@ export default function SchedulePage() {
   const [activeTab, setActiveTab] = useState(0)
 
   useEffect(() => {
-    if (courseSchedules.length === 0) dispatch(setCourseSchedules(mockSchedules))
-    if (events.length === 0) dispatch(setEvents(mockEvents))
-    if (courseContentLessons.length === 0) {
-      dispatch(setCourseContent({
-        semesters: mockSemesters,
-        subjects: mockSubjects,
-        chapters: mockChapters,
-        lessons: mockLessons,
-      }))
-    }
-  }, [dispatch, courseSchedules.length, events.length, courseContentLessons.length])
+    dispatch(fetchCourseSchedulesThunk())
+    dispatch(fetchEventsThunk())
+    dispatch(fetchSemestersThunk())
+    dispatch(fetchSubjectsThunk())
+    dispatch(fetchChaptersThunk())
+    dispatch(fetchLessonsThunk())
+  }, [dispatch])
 
   const TABS = ['Study Schedule', 'Events']
 

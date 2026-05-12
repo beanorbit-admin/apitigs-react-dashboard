@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -6,7 +7,10 @@ import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateCourse } from '../../store/slices/courseSlice'
+import { fetchCoursesThunk, updateCourseThunk } from '../../store/slices/courseSlice'
+import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
+import { fetchEnrollmentsThunk } from '../../store/slices/enrollmentSlice'
+import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { formatCurrency } from '../../utils/formatters'
 
 export default function CourseDetail() {
@@ -18,6 +22,13 @@ export default function CourseDetail() {
   const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.courseId === Number(id)))
   const students = useAppSelector(state => state.students.list)
 
+  useEffect(() => {
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchTeachersThunk())
+    dispatch(fetchEnrollmentsThunk({ course: id }))
+    dispatch(fetchStudentsThunk())
+  }, [dispatch, id])
+
   if (!course) return (
     <PageWrapper title="Course Detail">
       <p className="text-gray-500">Course not found.</p>
@@ -27,9 +38,11 @@ export default function CourseDetail() {
   const assignedTeachers = teachers.filter(t => course.teacherIds?.includes(t.id))
   const enrolledStudents = enrollments.map(e => ({ ...e, student: students.find(s => s.id === e.studentId) }))
 
-  const removeTeacher = (tid) => {
-    dispatch(updateCourse({ ...course, teacherIds: course.teacherIds.filter(id => id !== tid) }))
-    toast.success('Teacher removed')
+  const removeTeacher = async (tid) => {
+    const newIds = (course.teacherIds || []).filter(x => x !== tid)
+    const result = await dispatch(updateCourseThunk({ id: course.id, data: { teacherIds: newIds } }))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher removed')
+    else toast.error('Remove failed')
   }
 
   return (
