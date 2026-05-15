@@ -878,7 +878,7 @@ function EventsTab() {
 
   const emptyForm = {
     title: '', type: 'LiveClass', quizId: '', courseId: '', semesterId: '', paperId: '',
-    teacherId: '', date: '', startTime: '', endTime: '', link: '', targetStudents: 'all',
+    teacherId: '', date: '', startTime: '', endTime: '', link: '',
   }
   const [eForm, setEForm] = useState(emptyForm)
 
@@ -947,7 +947,6 @@ function EventsTab() {
       startTime: ev.start_time,
       endTime: ev.end_time,
       link: ev.link || '',
-      targetStudents: ev.target_students || 'all',
     })
     setDetailEvent(null)
     setEventModalOpen(true)
@@ -967,7 +966,7 @@ function EventsTab() {
       start_time: eForm.startTime,
       end_time: eForm.endTime,
       link: eForm.type === 'LiveClass' ? eForm.link : '',
-      target_students: eForm.targetStudents || 'all',
+      target_students: 'all',
     }
     if (editEvent) {
       const result = await dispatch(updateEventThunk({ id: editEvent.id, data: apiPayload }))
@@ -1270,27 +1269,6 @@ function EventsTab() {
               />
             </div>
           )}
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Target Students</label>
-            <div className="flex gap-6">
-              {[
-                { value: 'all', label: 'All Enrolled' },
-                { value: 'batch', label: 'Specific Batch' },
-              ].map(({ value, label }) => (
-                <label key={value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="targetStudents"
-                    value={value}
-                    checked={eForm.targetStudents === value}
-                    onChange={() => setEForm(f => ({ ...f, targetStudents: value }))}
-                    className="text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEventModalOpen(false)}>Cancel</Button>
             <Button onClick={saveEvent}>{editEvent ? 'Update Event' : 'Create Event'}</Button>
