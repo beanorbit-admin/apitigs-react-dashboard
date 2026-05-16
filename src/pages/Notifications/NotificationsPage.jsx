@@ -30,7 +30,7 @@ const typeIcon = {
 }
 
 const INIT_FORM = {
-  title: '', message: '', image: null,
+  title: '', message: '', type: 'general', image: null,
   recipientType: 'all-students',
   courseId: '', studentIds: [],
   scheduleDate: '', scheduleTime: '',
@@ -125,7 +125,7 @@ function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students
     const result = await dispatch(sendNotificationNowThunk({
       title: form.title,
       message: form.message,
-      type: 'general',
+      type: form.type,
       recipient_type: recipientTypeMap[form.recipientType],
       course_id: form.courseId ? Number(form.courseId) : null,
       student_ids: form.studentIds,
@@ -156,6 +156,7 @@ function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students
     const result = await dispatch(createScheduledThunk({
       title: form.title,
       message: form.message,
+      type: form.type,
       target: recipientTypeMap[form.recipientType] ?? 'all_students',
       course: form.courseId ? Number(form.courseId) : null,
       selected_recipients: form.studentIds,
@@ -219,6 +220,18 @@ function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students
             placeholder="Enter notification message..."
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
           />
+        </div>
+
+        {/* Type */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Type</label>
+          <select
+            value={form.type}
+            onChange={e => set('type', e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {TYPE_CHOICES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
         </div>
 
         {/* Image */}
