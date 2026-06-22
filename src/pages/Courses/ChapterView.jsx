@@ -59,6 +59,15 @@ export default function ChapterView() {
   const [pdfSourceType, setPdfSourceType] = useState('url')
 
   const lessonForm = useForm()
+  const newPdfFile = lessonForm.watch('pdf_file')?.[0]
+  const [newPdfPreviewUrl, setNewPdfPreviewUrl] = useState(null)
+
+  useEffect(() => {
+    if (!newPdfFile) { setNewPdfPreviewUrl(null); return }
+    const url = URL.createObjectURL(newPdfFile)
+    setNewPdfPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [newPdfFile])
 
   useEffect(() => {
     dispatch(fetchCoursesThunk())
@@ -412,10 +421,29 @@ export default function ChapterView() {
                       {...lessonForm.register('pdf_file', { required: editLesson?.pdf_file ? false : (pdfSourceType === 'file' ? 'PDF file is required' : false) })}
                     />
                   </label>
-                  {editLesson?.pdf_file && !lessonForm.watch('pdf_file')?.[0] && (
-                    <a href={editLesson.pdf_file} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:underline mt-1">
-                      Current file: {editLesson.pdf_file.split('/').pop()}
-                    </a>
+                  {newPdfPreviewUrl ? (
+                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <span className="text-xs text-gray-600 truncate">{newPdfFile?.name}</span>
+                        <span className="text-xs text-gray-400 flex-shrink-0">New file</span>
+                      </div>
+                      <iframe src={newPdfPreviewUrl} title="New PDF preview" className="w-full h-56" />
+                    </div>
+                  ) : editLesson?.pdf_file && (
+                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <span className="text-xs text-gray-600 truncate">Current file: {editLesson.pdf_file.split('/').pop()}</span>
+                        <a
+                          href={editLesson.pdf_file}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-indigo-600 hover:underline flex items-center gap-1 flex-shrink-0"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Open
+                        </a>
+                      </div>
+                      <iframe src={editLesson.pdf_file} title="Current PDF preview" className="w-full h-56" />
+                    </div>
                   )}
                   {lessonForm.formState.errors.pdf_file && (
                     <p className="text-xs text-red-600">{lessonForm.formState.errors.pdf_file.message}</p>
