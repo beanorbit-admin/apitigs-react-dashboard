@@ -1,5 +1,10 @@
 import api from './api'
 
+// FormData needs its Content-Type set (with boundary) by the browser, not
+// the instance's default 'application/json' header.
+const formDataConfig = (data) =>
+  data instanceof FormData ? { headers: { 'Content-Type': undefined } } : undefined
+
 // Semesters
 export const fetchSemesters = (params = {}) =>
   api.get('semesters/', { params }).then(r => r.data)
@@ -44,10 +49,10 @@ export const fetchLessons = (params = {}) =>
   api.get('lessons/', { params }).then(r => r.data)
 
 export const createLesson = (data) =>
-  api.post('lessons/', data).then(r => r.data)
+  api.post('lessons/', data, formDataConfig(data)).then(r => r.data)
 
 export const updateLesson = (id, data) =>
-  api.patch(`lessons/${id}/`, data).then(r => r.data)
+  api.patch(`lessons/${id}/`, data, formDataConfig(data)).then(r => r.data)
 
 export const deleteLesson = (id) =>
   api.delete(`lessons/${id}/`)
